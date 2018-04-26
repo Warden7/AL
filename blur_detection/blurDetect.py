@@ -17,6 +17,8 @@ import numpy as np, scipy as sp
 import cv2, argparse
 import os
 
+SHOW_LAPLACIAN = False
+SHOW_TEXT = False
 
 def blurEvaluate(img):
     """
@@ -47,7 +49,7 @@ def blurEvaluate(img):
         if rows <= cols:
             ratio = scale_thred/cols
             cols_target = int(scale_thred)
-            rows_target = int(ratio*row)
+            rows_target = int(ratio*rows)
             print('rows=',rows,' cols=',cols, ' rows_target=',rows_target, ' cols_target=',cols_target)
         else:
             ratio = scale_thred/rows
@@ -55,19 +57,20 @@ def blurEvaluate(img):
             rows_target = int(scale_thred)
             print('rows=',rows,' cols=',cols, ' rows_target=',rows_target, ' cols_target=',cols_target)      
     
-        image_resize = cv2.resize(img, (rows_target, cols_target), cv2.INTER_LINEAR)
+        image_resize = cv2.resize(img, (cols_target, rows_target), cv2.INTER_LINEAR)
 
     else:
 
         image_resize = img
 
+
     # img exists.
-    image = cv2.Laplacian(image_resize, cv2.CV_32F, ksize=1)
+    img_laplacian = cv2.Laplacian(image_resize, cv2.CV_32F, ksize=3)
     #print('image variance=', image.var())
-    degree = cv2.meanStdDev(image)[1]
+    degree = cv2.meanStdDev(img_laplacian)[1]
     #print degree
     #print('Degree=', sum(degree**2)/3.0)
-    return sum(degree**2)/3.0 
+    return sum(degree**2)/3.0, image_resize ,img_laplacian
 
 
 def main(args):
@@ -95,7 +98,7 @@ def parse_arguments(argv):
      
     parser.add_argument('--image_path', type=str,
             help='The path of image to be processed.',
-            default='/home/image/motion0001.jpg')
+            default='/home/akulaku/Project/BlurDetection/original_material/BlurDetect/DiscriminativeBlur/image/motion0001.jpg')
     return parser.parse_args(argv)
 
 def get_image_intensity_mean(image):
@@ -119,29 +122,48 @@ def batch_eval_blur(path, output_dir, blur_thred):
         if True == os.path.isfile(whole_file_name):   
             image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
             mean = get_image_intensity_mean(image)
-            eval = blurEvaluate(image)
-            if eval < blur_thred or mean < 50:
+            eval, image_resize, img_laplacian = blurEvaluate(image)
+            if eval < blur_thred or mean < 40:
                 #print('-----------------blurred-----------------[eval]:' , eval)
                 text_blur = '[blur]:'+ str(eval[0]) 
                 text_mean = '[mean]:' + str(mean)
                 print(text_blur + '  ' + text_mean)
-                cv2.putText(image, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
-                cv2.putText(image, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+
+                if True == SHOW_TEXT:
+                    cv2.putText(image_resize, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+                    cv2.putText(image_resize, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+
+                    cv2.putText(image, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+                    cv2.putText(image, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
 
                 output_blur_file = os.path.join(blur_class_dir, file)
-                cv2.imwrite(output_blur_file, image)
+                #cv2.imwrite(output_blur_file, image)
+
+                if True == SHOW_LAPLACIAN:
+                    cv2.imwrite(output_blur_file,np.hstack((image_resize, img_laplacian)))
+                else:
+                    cv2.imwrite(output_blur_file, image)
+
             else:
                 #print('-----------------clear-----------------[eval]:',eval)
                 text_clear = '[clear]:'+ str(eval[0])
                 text_mean = '[mean]:' + str(mean)
                 print(text_clear + '  ' + text_mean)
-                cv2.putText(image, text_clear, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
-                cv2.putText(image, text_mean,  (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+                
+                if True == SHOW_TEXT:
+                    cv2.putText(image_resize, text_clear, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+                    cv2.putText(image_resize, text_mean,  (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+
+                    cv2.putText(image, text_clear, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+                    cv2.putText(image, text_mean,  (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
 
                 output_clear_file = os.path.join(clear_class_dir, file)
-                cv2.imwrite(output_clear_file, image)                
-            #cv2.imwrite(output_file, image)
-
+                #cv2.imwrite(output_clear_file, image) 
+                #print('image shape:',image.shape, 'img_laplacian shape:',img_laplacian.shape)
+                if True == SHOW_LAPLACIAN:
+                    cv2.imwrite(output_clear_file, np.hstack((image_resize, img_laplacian)))               
+                else:
+                    cv2.imwrite(output_clear_file, image)
 if __name__ == "__main__":
     main(parse_arguments(sys.argv[1:]))
     blur_thred = 120
