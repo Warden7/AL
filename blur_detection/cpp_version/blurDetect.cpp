@@ -28,7 +28,7 @@ float blurEvaluate(cv::Mat& img)
     }
     // use Laplacian calculation
     cv::Mat image;
-    cv::Laplacian(img, image, CV_32F, 1);
+    cv::Laplacian(img, image, CV_32F, 3);
 
     // display image
     //cv::imshow( "Display window", image);
@@ -86,8 +86,8 @@ cv::Mat imageResize(cv::Mat& img, float scale_thred)
             cols_target = (int)(ratio*cols);
             rows_target = (int)(scale_thred);
         }
-        cv::resize(img, img_resize, cv::Size(rows_target, cols_target), CV_INTER_LINEAR);
-        std::cout << "rows:" <<rows << ", " <<" cols :"<< cols << " rows_target :"<< rows_target << " cols_target:" <<cols_target << ", " << '\n';
+        cv::resize(img, img_resize, cv::Size(cols_target, rows_target), CV_INTER_LINEAR);
+        //std::cout << "rows:" <<rows << ", " <<" cols :"<< cols << " rows_target :"<< rows_target << " cols_target:" <<cols_target << ", " << '\n';
 
     }else
     {
@@ -103,8 +103,8 @@ int main(int argc, char** argv)
     cv::Mat img, img_resize;
 
     float mean,blur;
-    float mean_thred = 50;
-    float blur_thred = 120;
+    float mean_thred = 35;
+    float blur_thred = 450;
     float scale_thred = 640.0;
 
     for(auto& p: fs::directory_iterator(argv[1])) {
@@ -114,8 +114,7 @@ int main(int argc, char** argv)
         mean = getImageMeanBrightness(img_resize);
         blur = blurEvaluate(img_resize);
 
-        std::cout << "rows:" <<img.rows << ", " <<" cols :"<< img.cols << "rows_target:" <<img_resize.rows << ", " <<" cols_target :"<< img_resize.cols << '\n';
-
+        //std::cout << "rows:" <<img.rows << ", " <<" cols :"<< img.cols << "rows_target:" <<img_resize.rows << ", " <<" cols_target :"<< img_resize.cols << '\n';
 
         if(mean < mean_thred || blur < blur_thred) {
             std::cout << "[BLUR]:" <<p << ", " <<" blur :"<< blur << "  mean :"<< mean << '\n';

@@ -50,12 +50,12 @@ def blurEvaluate(img):
             ratio = scale_thred/cols
             cols_target = int(scale_thred)
             rows_target = int(ratio*rows)
-            print('rows=',rows,' cols=',cols, ' rows_target=',rows_target, ' cols_target=',cols_target)
+            #print('rows=',rows,' cols=',cols, ' rows_target=',rows_target, ' cols_target=',cols_target)
         else:
             ratio = scale_thred/rows
             cols_target = int(ratio*cols)
             rows_target = int(scale_thred)
-            print('rows=',rows,' cols=',cols, ' rows_target=',rows_target, ' cols_target=',cols_target)      
+            #print('rows=',rows,' cols=',cols, ' rows_target=',rows_target, ' cols_target=',cols_target)      
     
         image_resize = cv2.resize(img, (cols_target, rows_target), cv2.INTER_LINEAR)
 
@@ -76,7 +76,7 @@ def blurEvaluate(img):
 def main(args):
     image = cv2.imread(args.image_path, 0)
     
-    print('image shape=', np.shape(image))
+    #print('image shape=', np.shape(image))
     eval = blurEvaluate(image)
     if eval < 10:
         print('-----------------blurred-----------------[eval]:' , eval)
@@ -110,11 +110,14 @@ def batch_eval_blur(path, output_dir, blur_thred):
 
     blur_class_dir  = output_dir + 'blur_class/'
     clear_class_dir = output_dir + 'clear_class/'
+    dark_class_dir  = output_dir + 'dark_class/'
 
     if not os.path.exists(blur_class_dir):
         os.makedirs(blur_class_dir)
     if not os.path.exists(clear_class_dir):
         os.makedirs(clear_class_dir)
+    if not os.path.exists(dark_class_dir):
+        os.makedirs(dark_class_dir)
 
     for file in os.listdir(path): 
         whole_file_name = os.path.join(path, file)
@@ -123,50 +126,74 @@ def batch_eval_blur(path, output_dir, blur_thred):
             image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
             mean = get_image_intensity_mean(image)
             eval, image_resize, img_laplacian = blurEvaluate(image)
-            if eval < blur_thred or mean < 40:
-                #print('-----------------blurred-----------------[eval]:' , eval)
+            
+            if mean < 35:
                 text_blur = '[blur]:'+ str(eval[0]) 
                 text_mean = '[mean]:' + str(mean)
                 print(text_blur + '  ' + text_mean)
 
                 if True == SHOW_TEXT:
-                    cv2.putText(image_resize, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
-                    cv2.putText(image_resize, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+                    cv2.putText(image_resize, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255))
+                    cv2.putText(image_resize, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255))
 
-                    cv2.putText(image, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
-                    cv2.putText(image, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+                    cv2.putText(image, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255))
+                    cv2.putText(image, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255))
 
-                output_blur_file = os.path.join(blur_class_dir, file)
+                output_dark_file = os.path.join(dark_class_dir, file)
                 #cv2.imwrite(output_blur_file, image)
 
                 if True == SHOW_LAPLACIAN:
-                    cv2.imwrite(output_blur_file,np.hstack((image_resize, img_laplacian)))
+                    cv2.imwrite(output_dark_file,np.hstack((image_resize, img_laplacian)))
                 else:
-                    cv2.imwrite(output_blur_file, image)
+                    cv2.imwrite(output_dark_file, image)
 
             else:
-                #print('-----------------clear-----------------[eval]:',eval)
-                text_clear = '[clear]:'+ str(eval[0])
-                text_mean = '[mean]:' + str(mean)
-                print(text_clear + '  ' + text_mean)
-                
-                if True == SHOW_TEXT:
-                    cv2.putText(image_resize, text_clear, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
-                    cv2.putText(image_resize, text_mean,  (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+                if eval < blur_thred:
+                    #print('-----------------blurred-----------------[eval]:' , eval)
+                    text_blur = '[blur]:'+ str(eval[0]) 
+                    text_mean = '[mean]:' + str(mean)
+                    print(text_blur + '  ' + text_mean)
 
-                    cv2.putText(image, text_clear, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
-                    cv2.putText(image, text_mean,  (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+                    if True == SHOW_TEXT:
+                        cv2.putText(image_resize, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+                        cv2.putText(image_resize, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
 
-                output_clear_file = os.path.join(clear_class_dir, file)
-                #cv2.imwrite(output_clear_file, image) 
-                #print('image shape:',image.shape, 'img_laplacian shape:',img_laplacian.shape)
-                if True == SHOW_LAPLACIAN:
-                    cv2.imwrite(output_clear_file, np.hstack((image_resize, img_laplacian)))               
+                        cv2.putText(image, text_blur, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+                        cv2.putText(image, text_mean, (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255))
+
+                    output_blur_file = os.path.join(blur_class_dir, file)
+                    #cv2.imwrite(output_blur_file, image)
+
+                    if True == SHOW_LAPLACIAN:
+                        cv2.imwrite(output_blur_file,np.hstack((image_resize, img_laplacian)))
+                    else:
+                        cv2.imwrite(output_blur_file, image)
+
                 else:
-                    cv2.imwrite(output_clear_file, image)
+                    #print('-----------------clear-----------------[eval]:',eval)
+                    text_clear = '[clear]:'+ str(eval[0])
+                    text_mean = '[mean]:' + str(mean)
+                    print(text_clear + '  ' + text_mean)
+                    
+                    if True == SHOW_TEXT:
+                        cv2.putText(image_resize, text_clear, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+                        cv2.putText(image_resize, text_mean,  (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+
+                        cv2.putText(image, text_clear, (30, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+                        cv2.putText(image, text_mean,  (30, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0))
+
+                    output_clear_file = os.path.join(clear_class_dir, file)
+                    #cv2.imwrite(output_clear_file, image) 
+                    #print('image shape:',image.shape, 'img_laplacian shape:',img_laplacian.shape)
+                    if True == SHOW_LAPLACIAN:
+                        cv2.imwrite(output_clear_file, np.hstack((image_resize, img_laplacian)))               
+                    else:
+                        cv2.imwrite(output_clear_file, image)
+
+
 if __name__ == "__main__":
     main(parse_arguments(sys.argv[1:]))
-    blur_thred = 120
+    blur_thred = 450  #500
 
     path_input = '/home/Workstation/BlurDetection/original_test_0416/cpp_code/image_list/'  
     path_output = '/home/Workstation/BlurDetection/original_test_0416/cpp_code/pyout/'
