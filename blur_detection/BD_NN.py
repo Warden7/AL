@@ -8,9 +8,11 @@ import numpy as np, scipy as sp
 import cv2, argparse
 import os
 
-SHOW_LAPLACIAN = True
-SHOW_TEXT = True
-DEBUG_DISP = True
+SHOW_LAPLACIAN = False
+SHOW_TEXT = False
+DEBUG_DISP = False
+
+index = 0
 
 
 def imageResize(img, length_thred=640.0):
@@ -111,14 +113,8 @@ def blurEvaluate(img):
     return sum(degree**2)/3.0, image_resize ,img_laplacian
 
 def main(args):
-    image = cv2.imread(args.image_path, 0)
+    print("start!")
     
-    #print('image shape=', np.shape(image))
-    # eval = blurEvaluate(image)
-    # if eval < 10:
-    #     print('-----------------blurred-----------------[eval]:' , eval)
-    # else:
-    #     print('-----------------clear-----------------[eval]:',eval)
     
 def parse_arguments(argv):
     """Command line parse."""
@@ -126,7 +122,7 @@ def parse_arguments(argv):
      
     parser.add_argument('--image_path', type=str,
             help='The path of image to be processed.',
-            default='/home/akulaku/Project/BlurDetection/original_material/BlurDetect/DiscriminativeBlur/image/motion0001.jpg')
+            default='/image/motion0001.jpg')
     return parser.parse_args(argv)
 
 def getImageIntensityMean(image):
@@ -149,6 +145,7 @@ def createFlodersAuto(output_dir):
 
 def batch_metric_disp(path, output_dir, blur_thred): 
 
+    global index
     blur_class_dir, clear_class_dir, dark_class_dir = createFlodersAuto(output_dir)
 
     for file in os.listdir(path): 
@@ -162,7 +159,11 @@ def batch_metric_disp(path, output_dir, blur_thred):
             eval, image_resize1, img_laplacian = blurEvaluate(image)
             blur_result = blurDistriminator(image_resize, metric_matrix)
 
-            if mean < 35:
+            file = str(index) + '_' + file
+            index = index + 1
+
+            if mean < 40:
+                print "---------------DARK---------------"
                 output_file = os.path.join(dark_class_dir, file)
             else:
                 if True == blur_result:
@@ -172,8 +173,103 @@ def batch_metric_disp(path, output_dir, blur_thred):
                     print "---------------CLEAR---------------"
                     output_file = os.path.join(clear_class_dir, file)
             
+        if True == SHOW_LAPLACIAN:
+            cv2.imwrite(output_file, np.hstack((image_resize, img_laplacian)))
+        else:
+            cv2.imwrite(output_file, image)
+           
+import tensorflow as tf
+from compiler.ast import flatten
+
+def featureSaver(path, output_dir, blur_thred): 
+    out_name = output_dir + 'output.tfrecords'
+    writer = tf.python_io.TFRecordWriter(out_name)
+
+    blur_class_dir, clear_class_dir, dark_class_dir = createFlodersAuto(output_dir)
+    for file in os.listdir(path): 
+        whole_file_name = os.path.join(path, file)
+        if True == os.path.isfile(whole_file_name):   
+            image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
+            mean = getImageIntensityMean(image)
+            image_resize = imageResize(image)
+            metric_matrix,image_resize = blurMetricBlocks(image_resize)
+            eval, image_resize1, img_laplacian = blurEvaluate(image)
+            blur_result = blurDistriminator(image_resize, metric_matrix)
+
+            if mean < 40:
+                output_file = os.path.join(dark_class_dir, file)
+            else:
+                if True == blur_result:
+                    print "---------------BLUR---------------"
+                    output_file = os.path.join(blur_class_dir, file)
+                else:
+                    print "---------------CLEAR---------------"
+                    output_file = os.path.join(clear_class_dir, file)
+                #-------------------------------------------------
+                
+                label = 1 if(True == blur_result) else 0
+                metric_list = flatten(metric_matrix.tolist()) #np.reshape(metric_matrix, (1, 30))
+
+                print('label:',label," metric_list:",metric_list)
+                example = tf.train.Example(
+                   features = tf.train.Features(
+                     feature = {
+                       'label': tf.train.Feature(
+                         int64_list=tf.train.Int64List(value=[label])),
+                       'metric_list': tf.train.Feature(
+                         float_list=tf.train.FloatList(value=metric_list))
+                       }))
+
+                serialized = example.SerializeToString()
+                writer.write(serialized)
+
+                #-------------------------------------------------
         cv2.imwrite(output_file, np.hstack((image_resize, img_laplacian)))
 
+def featureReader(tfrecord_path):
+    tfrecord_name = tfrecord_path + 'output.tfrecords'
+    filename_queue = tf.train.string_input_producer([tfrecord_name], num_epochs=None)
+
+    reader = tf.TFRecordReader()
+
+    _, serialized_example = reader.read(filename_queue)
+
+    features = tf.parse_single_example(
+      serialized_example,
+      features={
+        'label': tf.FixedLenFeature([1], tf.int64),
+        'metric_list': tf.FixedLenFeature([30], tf.float32)
+      })
+
+    # document = sparse_ops.serialize_sparse(features['document'])
+    # query = sparse_ops.serialize_sparse(features['query'])
+    # answer = features['answer']
+
+    label_out = features['label']
+    metric_list_out = features['metric_list']
+    #c_raw_out = features['c']
+    #c_raw_out = tf.sparse_to_dense(features['c'])
+    #c_out = tf.decode_raw(c_raw_out, tf.uint8)
+    print label_out
+    print metric_list_out
+
+
+    label_batch, metric_batch = tf.train.shuffle_batch([label_out, metric_list_out], batch_size=2, 
+                                    capacity=200, min_after_dequeue=100, num_threads=2)
+    sess = tf.Session()
+    init = tf.initialize_all_variables()
+    sess.run(init)
+
+    tf.train.start_queue_runners(sess=sess)
+    label_val, metric_val = sess.run([label_batch, metric_batch])
+    print 'first batch:'
+    print '  label_val:',label_val
+    print '  metric_val:',metric_val
+
+    label_val, metric_val = sess.run([label_batch, metric_batch])
+    print 'second batch:'
+    print '  label_val:',label_val
+    print '  metric_val:',metric_val
 
 if __name__ == "__main__":
     main(parse_arguments(sys.argv[1:]))
