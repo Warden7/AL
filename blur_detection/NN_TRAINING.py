@@ -6,8 +6,8 @@ import tensorflow as tf
 learning_rate = 0.001
 training_epochs = 500
 batch_size = 2
-display_step = 1
-n_sample = 18
+display_step = 10
+n_sample = 287
 
 n_input = 30
 n_hidden_1 = 64
@@ -16,7 +16,7 @@ n_hidden_3 = 64
 n_class = 2
 
 x = tf.placeholder('float', [None, 30])
-y = tf.placeholder('int64', [None, 2])
+y = tf.placeholder('int64', [None, n_class])
 
 weights = {
 	'h1':tf.Variable(tf.random_normal([n_input, n_hidden_1])),
@@ -49,7 +49,7 @@ def decode_from_tfrecords(filename_queue, batch_size):
     _, serialized_example = reader.read(filename_queue)   
     features = tf.parse_single_example(serialized_example,
                                        features={
-												'label': tf.FixedLenFeature([1], tf.int64),
+												'label': tf.FixedLenFeature([2], tf.int64),
 												'metric_list': tf.FixedLenFeature([30], tf.float32)
                                        })  
     
@@ -65,8 +65,8 @@ def decode_from_tfrecords(filename_queue, batch_size):
     #                                                   capacity=capacity,
     #                                                   min_after_dequeue=min_after_dequeue)
 
-    label_batch, metric_batch = tf.train.shuffle_batch([label_out, metric_list_out], batch_size=2, 
-                                    capacity=200, min_after_dequeue=100, num_threads=2)
+    label_batch, metric_batch = tf.train.shuffle_batch([label_out, metric_list_out], batch_size, 
+                                    capacity=500, min_after_dequeue=10, num_threads=2)
 
     return label_batch, metric_batch
 
@@ -83,7 +83,7 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
 
 
 tfrecord_path = './tfrecords/'
-tfrecord_name = tfrecord_path + 'train.tfrecords'
+tfrecord_name = tfrecord_path + 'training.tfrecords'
 filename_queue = tf.train.string_input_producer([tfrecord_name], num_epochs=None)
 label_batch, metric_batch = decode_from_tfrecords(filename_queue, batch_size)
 
@@ -95,21 +95,21 @@ with tf.Session() as sess:
     for epoch in range(training_epochs):
         avg_cost = 0.
         total_batch = int(n_sample/batch_size)
-        print("epoch:",epoch)
+        # print("epoch:",epoch)
 	    # Loop over all batches
         for i in range(total_batch):
-            print("i:",i)
-            label_val, metric_val = sess.run([label_batch, metric_batch])
-            print 'first batch:'
-            print 'label_batch:',label_batch
-            print 'metric_batch:',metric_batch
-            print '  label_val:',label_val
-            print '  metric_val:',metric_val
+            # print("i:",i)
+            # label_val, metric_val = sess.run([label_batch, metric_batch])
+            # print 'first batch:'
+            # print 'label_batch:',label_batch
+            # print 'metric_batch:',metric_batch
+            # print '  label_val:',label_val
+            # print '  metric_val:',metric_val
 
 
 	        # Run optimization op (backprop) and cost op (to get loss value)
-            print("metric_batch:",metric_batch.eval())
-            print("label_batch:",label_batch.eval())
+            # print("metric_batch:",metric_batch.eval())
+            # print("label_batch:",label_batch.eval())
             _, c = sess.run([optimizer, cost], feed_dict={x: metric_batch.eval(),
 	                                                        y: label_batch.eval()})
 	        # Compute average loss
@@ -119,9 +119,11 @@ with tf.Session() as sess:
 	        print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(avg_cost))
 	print("Optimization Finished!")
 
-	# Test model
-	pred = tf.nn.softmax(logits)  # Apply softmax to logits
-	correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
-	# Calculate accuracy
-	accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-	print("Accuracy:", accuracy.eval({X: mnist.test.images, Y: mnist.test.labels}))
+    print("Optimization Finished!")
+
+	# # Test model
+	# pred = tf.nn.softmax(pred)  # Apply softmax to logits
+	# correct_prediction = tf.equal(tf.argmax(pred, 1), tf.argmax(Y, 1))
+	# # Calculate accuracy
+	# accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+	# print("Accuracy:", accuracy.eval({X: mnist.test.images, : mnist.test.labels}))

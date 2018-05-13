@@ -182,7 +182,7 @@ import tensorflow as tf
 from compiler.ast import flatten
 
 def featureSaver(path, output_dir, blur_thred): 
-    out_name = output_dir + 'output.tfrecords'
+    out_name = output_dir + 'training.tfrecords'
     writer = tf.python_io.TFRecordWriter(out_name)
 
     blur_class_dir, clear_class_dir, dark_class_dir = createFlodersAuto(output_dir)
@@ -207,17 +207,16 @@ def featureSaver(path, output_dir, blur_thred):
                     output_file = os.path.join(clear_class_dir, file)
                 #-------------------------------------------------
                 
-                label = 1 if(True == blur_result) else 0
+                label_blur = np.array([1, 0])
+                label_clear = np.array([0, 1])
+                label = label_blur if(True == blur_result) else label_clear
                 metric_list = flatten(metric_matrix.tolist()) #np.reshape(metric_matrix, (1, 30))
 
-                print('label:',label," metric_list:",metric_list)
-                example = tf.train.Example(
-                   features = tf.train.Features(
+                #metric_raw = metric_list.tostring()
+                example = tf.train.Example(features = tf.train.Features(
                      feature = {
-                       'label': tf.train.Feature(
-                         int64_list=tf.train.Int64List(value=[label])),
-                       'metric_list': tf.train.Feature(
-                         float_list=tf.train.FloatList(value=metric_list))
+                       'label': tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
+                       'metric_list': tf.train.Feature(float_list=tf.train.FloatList(value=metric_list))
                        }))
 
                 serialized = example.SerializeToString()
@@ -225,9 +224,11 @@ def featureSaver(path, output_dir, blur_thred):
 
                 #-------------------------------------------------
         cv2.imwrite(output_file, np.hstack((image_resize, img_laplacian)))
+    writer.close()
+    return 0
 
 def featureReader(tfrecord_path):
-    tfrecord_name = tfrecord_path + 'output.tfrecords'
+    tfrecord_name = tfrecord_path + 'training.tfrecords'
     filename_queue = tf.train.string_input_producer([tfrecord_name], num_epochs=None)
 
     reader = tf.TFRecordReader()
@@ -237,7 +238,7 @@ def featureReader(tfrecord_path):
     features = tf.parse_single_example(
       serialized_example,
       features={
-        'label': tf.FixedLenFeature([1], tf.int64),
+        'label': tf.FixedLenFeature([2], tf.int64),
         'metric_list': tf.FixedLenFeature([30], tf.float32)
       })
 
@@ -254,8 +255,8 @@ def featureReader(tfrecord_path):
     print metric_list_out
 
 
-    label_batch, metric_batch = tf.train.shuffle_batch([label_out, metric_list_out], batch_size=2, 
-                                    capacity=200, min_after_dequeue=100, num_threads=2)
+    label_batch, metric_batch = tf.train.shuffle_batch([label_out, metric_list_out], batch_size=1, 
+                                    capacity=200, min_after_dequeue=3, num_threads=2)
     sess = tf.Session()
     init = tf.initialize_all_variables()
     sess.run(init)
@@ -263,6 +264,8 @@ def featureReader(tfrecord_path):
     tf.train.start_queue_runners(sess=sess)
     label_val, metric_val = sess.run([label_batch, metric_batch])
     print 'first batch:'
+    print 'label_batch:',label_batch
+    print 'metric_batch:',metric_batch
     print '  label_val:',label_val
     print '  metric_val:',metric_val
 
