@@ -4,8 +4,8 @@ import numpy as np
 import tensorflow as tf
 
 learning_rate = 0.001
-training_epochs = 500
-batch_size = 2
+training_epochs = 50000
+batch_size = 20
 display_step = 10
 n_sample = 287
 

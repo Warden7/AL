@@ -7,16 +7,16 @@ sys.path.append('../../..')
 import numpy as np, scipy as sp
 import cv2, argparse
 import os
+import shutil
 
 SHOW_LAPLACIAN = False
 SHOW_TEXT = False
 DEBUG_DISP = False
+FILE_COPY = True
 
 index = 0
 
-
-def imageResize(img, length_thred=640.0):
-
+def image_resize(img, length_thred=640.0):
     shape = img.shape
     rows = shape[0]
     cols = shape[1]
@@ -41,7 +41,7 @@ def imageResize(img, length_thred=640.0):
 
     return image_resize
 
-def blurMetricBlocks(image_resize, blur_thred=600, blocks_horizontal=5, blocks_vertical=6):
+def blur_metric_blocks(image_resize, blur_thred=600, blocks_horizontal=5, blocks_vertical=6):
 
     shape = image_resize.shape
     rows = shape[0]
@@ -58,7 +58,7 @@ def blurMetricBlocks(image_resize, blur_thred=600, blocks_horizontal=5, blocks_v
             x_bottomright = w_block*(i + 1)   
             y_bottomright = h_block*(j + 1) 
             img_block = image_resize[y_topleft:y_bottomright, x_topleft:x_bottomright]
-            laplacian_val = laplacianCalc(img_block)
+            laplacian_val = laplacian_calc(img_block)
             metric_matrix[i,j] = laplacian_val
 
             if True == DEBUG_DISP:
@@ -74,7 +74,7 @@ def blurMetricBlocks(image_resize, blur_thred=600, blocks_horizontal=5, blocks_v
                    
     return metric_matrix, image_resize
 
-def blurDistriminator(image_resize, metric_matrix, blur_thred=600, blocks_horizontal=5, blocks_vertical=6):
+def blur_distriminator(image_resize, metric_matrix, blur_thred=600, blocks_horizontal=5, blocks_vertical=6):
 
     metric_matrix_flag = np.where(metric_matrix > blur_thred, 0, 1)
     # print('metric_matrix  =', metric_matrix)
@@ -92,25 +92,24 @@ def blurDistriminator(image_resize, metric_matrix, blur_thred=600, blocks_horizo
     else:
         return False
 
-def laplacianCalc(img_block):
+def laplacian_calc(img_block):
     img_laplacian = cv2.Laplacian(img_block, cv2.CV_32F, ksize=3)
     degree = cv2.meanStdDev(img_laplacian)[1]
     return sum(degree**2)/3.0
 
-def blurEvaluate(img):
+def blur_evaluate(img):
     degree = -1
     if img is None:
         return degree
 
-    #image scaler
-    image_resize = imageResize(img)
+    img_resize = image_resize(img)
 
     # img exists.
-    img_laplacian = cv2.Laplacian(image_resize, cv2.CV_32F, ksize=3)
+    img_laplacian = cv2.Laplacian(img_resize, cv2.CV_32F, ksize=3)
     #print('image variance=', image.var())
     degree = cv2.meanStdDev(img_laplacian)[1]
     #print('Degree=', sum(degree**2)/3.0)
-    return sum(degree**2)/3.0, image_resize ,img_laplacian
+    return sum(degree**2)/3.0, img_resize ,img_laplacian
 
 def main(args):
     print("start!")
@@ -125,11 +124,11 @@ def parse_arguments(argv):
             default='/image/motion0001.jpg')
     return parser.parse_args(argv)
 
-def getImageIntensityMean(image):
+def get_image_intensity_mean(image):
     img_array = np.array(image)
     return np.mean(img_array)
 
-def createFlodersAuto(output_dir):
+def create_floders_auto(output_dir):
     blur_class_dir  = output_dir + 'blur_class/'
     clear_class_dir = output_dir + 'clear_class/'
     dark_class_dir  = output_dir + 'dark_class/'
@@ -146,18 +145,18 @@ def createFlodersAuto(output_dir):
 def batch_metric_disp(path, output_dir, blur_thred): 
 
     global index
-    blur_class_dir, clear_class_dir, dark_class_dir = createFlodersAuto(output_dir)
+    blur_class_dir, clear_class_dir, dark_class_dir = create_floders_auto(output_dir)
 
     for file in os.listdir(path): 
         whole_file_name = os.path.join(path, file)
         #output_file = os.path.join(output_dir, file) 
         if True == os.path.isfile(whole_file_name):   
             image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
-            mean = getImageIntensityMean(image)
-            image_resize = imageResize(image)
-            metric_matrix,image_resize = blurMetricBlocks(image_resize)
-            eval, image_resize1, img_laplacian = blurEvaluate(image)
-            blur_result = blurDistriminator(image_resize, metric_matrix)
+            mean = get_image_intensity_mean(image)
+            img_resize = image_resize(image)
+            metric_matrix,img_resize = blur_metric_blocks(img_resize)
+            eval, image_resize1, img_laplacian = blur_evaluate(image)
+            blur_result = blur_distriminator(img_resize, metric_matrix)
 
             file = str(index) + '_' + file
             index = index + 1
@@ -174,27 +173,32 @@ def batch_metric_disp(path, output_dir, blur_thred):
                     output_file = os.path.join(clear_class_dir, file)
             
         if True == SHOW_LAPLACIAN:
-            cv2.imwrite(output_file, np.hstack((image_resize, img_laplacian)))
+            cv2.imwrite(output_file, np.hstack((img_resize, img_laplacian)))
         else:
-            cv2.imwrite(output_file, image)
+            if True == FILE_COPY:
+                shutil.copy(whole_file_name, output_file)
+            else:
+                cv2.imwrite(output_file, image)
            
 import tensorflow as tf
 from compiler.ast import flatten
 
-def featureSaver(path, output_dir, blur_thred): 
+def feature_saver_tfrecords(path, output_dir, blur_thred): 
     out_name = output_dir + 'training.tfrecords'
     writer = tf.python_io.TFRecordWriter(out_name)
+    label_blur = np.array([1, 0])
+    label_clear = np.array([0, 1])
 
-    blur_class_dir, clear_class_dir, dark_class_dir = createFlodersAuto(output_dir)
+    blur_class_dir, clear_class_dir, dark_class_dir = create_floders_auto(output_dir)
     for file in os.listdir(path): 
         whole_file_name = os.path.join(path, file)
         if True == os.path.isfile(whole_file_name):   
             image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
-            mean = getImageIntensityMean(image)
-            image_resize = imageResize(image)
-            metric_matrix,image_resize = blurMetricBlocks(image_resize)
-            eval, image_resize1, img_laplacian = blurEvaluate(image)
-            blur_result = blurDistriminator(image_resize, metric_matrix)
+            mean = get_image_intensity_mean(image)
+            image_resize = image_resize(image)
+            metric_matrix,image_resize = blur_metric_blocks(image_resize)
+            eval, image_resize1, img_laplacian = blur_evaluate(image)
+            blur_result = blur_distriminator(image_resize, metric_matrix)
 
             if mean < 40:
                 output_file = os.path.join(dark_class_dir, file)
@@ -206,13 +210,13 @@ def featureSaver(path, output_dir, blur_thred):
                     print "---------------CLEAR---------------"
                     output_file = os.path.join(clear_class_dir, file)
                 #-------------------------------------------------
-                
-                label_blur = np.array([1, 0])
-                label_clear = np.array([0, 1])
+        
                 label = label_blur if(True == blur_result) else label_clear
                 metric_list = flatten(metric_matrix.tolist()) #np.reshape(metric_matrix, (1, 30))
+                label = label.tolist()
+                print('label:',label," metric_list:",metric_list)
 
-                #metric_raw = metric_list.tostring()
+               
                 example = tf.train.Example(features = tf.train.Features(
                      feature = {
                        'label': tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
@@ -227,7 +231,7 @@ def featureSaver(path, output_dir, blur_thred):
     writer.close()
     return 0
 
-def featureReader(tfrecord_path):
+def feature_reader_tfrecords(tfrecord_path):
     tfrecord_name = tfrecord_path + 'training.tfrecords'
     filename_queue = tf.train.string_input_producer([tfrecord_name], num_epochs=None)
 
@@ -276,8 +280,15 @@ def featureReader(tfrecord_path):
 
 if __name__ == "__main__":
     main(parse_arguments(sys.argv[1:]))
-    blur_thred = 500  #500
+    blur_thred = 500 
 
-    path_input = '/input/'
-    path_output = './output/'
-    batch_metric_disp(path_input, path_output, blur_thred)
+    #added 0510
+    path_input = '/home/'  
+    path_output = './tfrecords/'
+    feature_saver_tfrecords(path_input, path_output, blur_thred)  
+
+    feature_reader_tfrecords(path_output)
+
+
+
+ 
