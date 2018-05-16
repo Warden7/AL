@@ -149,7 +149,7 @@ def batch_metric_disp(path, output_dir, blur_thred):
 
     for file in os.listdir(path): 
         whole_file_name = os.path.join(path, file)
-        #output_file = os.path.join(output_dir, file) 
+        
         if True == os.path.isfile(whole_file_name):   
             image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
             mean = get_image_intensity_mean(image)
@@ -183,13 +183,11 @@ def batch_metric_disp(path, output_dir, blur_thred):
 import tensorflow as tf
 from compiler.ast import flatten
 
-def feature_saver_tfrecords_from_text(txt_file_path, output_dir): 
-    out_name = output_dir + 'sample_training.tfrecords'
-    writer = tf.python_io.TFRecordWriter(out_name)
-    label_blur = np.array([1, 0])
+def feature_saver_tfrecords_from_text(txt_file_path, output_tfrecords_full_file): 
+    writer = tf.python_io.TFRecordWriter(output_tfrecords_full_file)
+    label_blur  = np.array([1, 0])
     label_clear = np.array([0, 1])
 
-    blur_class_dir, clear_class_dir, dark_class_dir = create_floders_auto(output_dir)
 
     with open(txt_file_path, 'r') as f:
         while 1:
@@ -200,7 +198,7 @@ def feature_saver_tfrecords_from_text(txt_file_path, output_dir):
 
             line_split = line.split(' ')
 
-            label_gt = line_split[1]
+            label_gt = int(line_split[1])
             whole_file_name = line_split[0]
             if True == os.path.isfile(whole_file_name):   
                 image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
@@ -211,6 +209,7 @@ def feature_saver_tfrecords_from_text(txt_file_path, output_dir):
                 label = label_blur if(1 == label_gt) else label_clear
                 metric_list = flatten(metric_matrix.tolist()) 
                 label = label.tolist()
+                print('label_gt',label_gt)
                 print('label:',label," metric_list:",metric_list)
 
                 example = tf.train.Example(features = tf.train.Features(

@@ -10,7 +10,7 @@ def get_files_count_in_dir(dir_path):
         count = count + 1
     return count 
 
-def generate_data_path_with_label(input_path, pos_folder_name, neg_folder_name, text_output_path):
+def generate_data_path_with_label(input_path, pos_folder_name, neg_folder_name, text_output_full_file):
 
 	pos_sample_dir = input_path + pos_folder_name
 	neg_sample_dir = input_path + neg_folder_name
@@ -22,9 +22,7 @@ def generate_data_path_with_label(input_path, pos_folder_name, neg_folder_name, 
 	num_samples_max = num_pos_samples if(num_pos_samples > num_neg_samples) else num_neg_samples
 	num_samples_min = num_pos_samples if(num_pos_samples < num_neg_samples) else num_neg_samples
 
-	output_file = text_output_path + '/' + 'sample.txt'
-
-	with open(output_file, 'wr') as f:
+	with open(text_output_full_file, 'wr') as f:
 
 		for i in range(0, num_samples_min):
 			pos_sample_name = pos_samples_list[i]
@@ -51,8 +49,8 @@ def generate_data_path_with_label(input_path, pos_folder_name, neg_folder_name, 
 
 	return 0
 
-def parse_data_label_info(txt_path):
-	with open(txt_path, 'r') as f:
+def parse_data_label_info(txt_full_file):
+	with open(txt_full_file, 'r') as f:
 		while 1:
 			line = f.readline()
 			line_split = line.split(' ')
@@ -60,7 +58,7 @@ def parse_data_label_info(txt_path):
 			if not line:
 				break
 
-			print 'l0:', line_split[0],'l1:', line_split[1]
+			print 'l0:', line_split[0],'l1:', int(line_split[1])
 
 if __name__ == "__main__":
 
