@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 
 learning_rate = 0.001
-training_epochs = 50000
+training_epochs = 10000
 batch_size = 20
 display_step = 10
 n_sample = 287
@@ -66,7 +66,7 @@ def decode_from_tfrecords(filename_queue, batch_size):
     #                                                   min_after_dequeue=min_after_dequeue)
 
     label_batch, metric_batch = tf.train.shuffle_batch([label_out, metric_list_out], batch_size, 
-                                    capacity=500, min_after_dequeue=10, num_threads=2)
+                                    capacity=5000, min_after_dequeue=10, num_threads=2)
 
     return label_batch, metric_batch
 
@@ -117,7 +117,7 @@ with tf.Session() as sess:
 	    # Display logs per epoch step
 	    if epoch % display_step == 0:
 	        print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(avg_cost))
-	print("Optimization Finished!")
+
 
     print("Optimization Finished!")
 

@@ -183,7 +183,49 @@ def batch_metric_disp(path, output_dir, blur_thred):
 import tensorflow as tf
 from compiler.ast import flatten
 
-def feature_saver_tfrecords(path, output_dir, blur_thred): 
+def feature_saver_tfrecords_from_text(txt_file_path, output_dir): 
+    out_name = output_dir + 'sample_training.tfrecords'
+    writer = tf.python_io.TFRecordWriter(out_name)
+    label_blur = np.array([1, 0])
+    label_clear = np.array([0, 1])
+
+    blur_class_dir, clear_class_dir, dark_class_dir = create_floders_auto(output_dir)
+
+    with open(txt_file_path, 'r') as f:
+        while 1:
+            line = f.readline()
+            
+            if not line:
+                break
+
+            line_split = line.split(' ')
+
+            label_gt = line_split[1]
+            whole_file_name = line_split[0]
+            if True == os.path.isfile(whole_file_name):   
+                image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
+                mean = get_image_intensity_mean(image)
+                img_resize = image_resize(image)
+                metric_matrix,img_resize = blur_metric_blocks(img_resize)
+
+                label = label_blur if(1 == label_gt) else label_clear
+                metric_list = flatten(metric_matrix.tolist()) 
+                label = label.tolist()
+                print('label:',label," metric_list:",metric_list)
+
+                example = tf.train.Example(features = tf.train.Features(
+                     feature = {
+                       'label': tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
+                       'metric_list': tf.train.Feature(float_list=tf.train.FloatList(value=metric_list))
+                       }))
+
+                serialized = example.SerializeToString()
+                writer.write(serialized)
+
+    writer.close()
+    return 0
+
+def feature_saver_tfrecords(path, output_dir, blur_thred, txt_file_path=None): 
     out_name = output_dir + 'training.tfrecords'
     writer = tf.python_io.TFRecordWriter(out_name)
     label_blur = np.array([1, 0])
@@ -195,10 +237,10 @@ def feature_saver_tfrecords(path, output_dir, blur_thred):
         if True == os.path.isfile(whole_file_name):   
             image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
             mean = get_image_intensity_mean(image)
-            image_resize = image_resize(image)
-            metric_matrix,image_resize = blur_metric_blocks(image_resize)
+            img_resize = image_resize(image)
+            metric_matrix,img_resize = blur_metric_blocks(img_resize)
             eval, image_resize1, img_laplacian = blur_evaluate(image)
-            blur_result = blur_distriminator(image_resize, metric_matrix)
+            blur_result = blur_distriminator(img_resize, metric_matrix)
 
             if mean < 40:
                 output_file = os.path.join(dark_class_dir, file)
@@ -227,13 +269,13 @@ def feature_saver_tfrecords(path, output_dir, blur_thred):
                 writer.write(serialized)
 
                 #-------------------------------------------------
-        cv2.imwrite(output_file, np.hstack((image_resize, img_laplacian)))
+        cv2.imwrite(output_file, np.hstack((img_resize, img_laplacian)))
     writer.close()
     return 0
 
-def feature_reader_tfrecords(tfrecord_path):
-    tfrecord_name = tfrecord_path + 'training.tfrecords'
-    filename_queue = tf.train.string_input_producer([tfrecord_name], num_epochs=None)
+def feature_reader_tfrecords(tfrecord_full_name):
+    #tfrecord_full_name = tfrecord_path + 'training.tfrecords'
+    filename_queue = tf.train.string_input_producer([tfrecord_full_name], num_epochs=None)
 
     reader = tf.TFRecordReader()
 
@@ -246,15 +288,10 @@ def feature_reader_tfrecords(tfrecord_path):
         'metric_list': tf.FixedLenFeature([30], tf.float32)
       })
 
-    # document = sparse_ops.serialize_sparse(features['document'])
-    # query = sparse_ops.serialize_sparse(features['query'])
-    # answer = features['answer']
 
     label_out = features['label']
     metric_list_out = features['metric_list']
-    #c_raw_out = features['c']
-    #c_raw_out = tf.sparse_to_dense(features['c'])
-    #c_out = tf.decode_raw(c_raw_out, tf.uint8)
+
     print label_out
     print metric_list_out
 
@@ -267,15 +304,15 @@ def feature_reader_tfrecords(tfrecord_path):
 
     tf.train.start_queue_runners(sess=sess)
     label_val, metric_val = sess.run([label_batch, metric_batch])
-    print 'first batch:'
-    print 'label_batch:',label_batch
+    print ' first batch:'
+    print ' label_batch:',label_batch
     print 'metric_batch:',metric_batch
-    print '  label_val:',label_val
+    print '   label_val:',label_val
     print '  metric_val:',metric_val
 
     label_val, metric_val = sess.run([label_batch, metric_batch])
     print 'second batch:'
-    print '  label_val:',label_val
+    print '   label_val:',label_val
     print '  metric_val:',metric_val
 
 if __name__ == "__main__":
@@ -289,6 +326,12 @@ if __name__ == "__main__":
 
     feature_reader_tfrecords(path_output)
 
+    # txt_file_path = 'sample.txt'
+    # output_dir = './tfrecords/'
+    # feature_saver_tfrecords_from_text(txt_file_path, output_dir)
+
+    tfrecord_full_name = './tfrecords/sample_training.tfrecords'
+    feature_reader_tfrecords(tfrecord_full_name)
 
 
  
