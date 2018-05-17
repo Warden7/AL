@@ -3,22 +3,25 @@
 import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
+from BD_NN import BLOCKS_SIZE
 
-learning_rate = 0.002
-training_epochs = 20000
-batch_size = 20
-display_step = 10
-n_sample = 287
 
-n_input = 30
-n_hidden_1 = 64
-n_hidden_2 = 64
-n_hidden_3 = 64
-n_class = 2
+learning_rate   = 0.001
+training_epochs = 1000
+batch_size      = 50
+display_step    = 10
+n_sample        = 3141
+dropout         = 0.5
+
+n_input    = BLOCKS_SIZE
+n_hidden_1 = 256
+n_hidden_2 = 256
+n_hidden_3 = 256
+n_class    = 2
 
 model_path = "/checkpoint/model.ckpt"
 
-x = tf.placeholder('float', [None, 30])
+x = tf.placeholder('float', [None, n_input])
 y = tf.placeholder('int64', [None, n_class])
 
 weights = {
@@ -35,14 +38,17 @@ bias = {
 	'out':tf.Variable(tf.random_normal([n_class]))
 }
 
-def bd_net(x, weights, bias):
+def bd_net(x, weights, bias, dropout):
 	layer1 = tf.add(tf.matmul(x, weights['h1']), bias['h1'])
 	layer1 = tf.nn.relu(layer1)
-	layer2 = tf.add(tf.matmul(layer1, weights['h2']), bias['h2'])
+        layer1_dropout = tf.nn.dropout(layer1, dropout)
+	layer2 = tf.add(tf.matmul(layer1_dropout, weights['h2']), bias['h2'])
 	layer2 = tf.nn.relu(layer2)
-	layer3 = tf.add(tf.matmul(layer2, weights['h3']), bias['h3'])
+        layer2_dropout = tf.nn.dropout(layer2, dropout)
+	layer3 = tf.add(tf.matmul(layer2_dropout, weights['h3']), bias['h3'])
 	layer3 = tf.nn.relu(layer3)
-	out_layer = tf.add(tf.matmul(layer3, weights['out']), bias['out'])
+        layer3_dropout = tf.nn.dropout(layer3, dropout)
+	out_layer = tf.add(tf.matmul(layer3_dropout, weights['out']), bias['out'])
 
 	return out_layer
 
@@ -53,7 +59,7 @@ def decode_from_tfrecords(filename_queue, batch_size):
     features = tf.parse_single_example(serialized_example,
                                        features={
 												'label': tf.FixedLenFeature([2], tf.int64),
-												'metric_list': tf.FixedLenFeature([30], tf.float32)
+												'metric_list': tf.FixedLenFeature([BLOCKS_SIZE], tf.float32)
                                        })  
     
     label_out = features['label']
@@ -68,7 +74,7 @@ def decode_from_tfrecords(filename_queue, batch_size):
 
     return label_batch, metric_batch
 
-pred = bd_net(x, weights, bias)
+pred = bd_net(x, weights, bias, dropout)
 
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
 
@@ -88,7 +94,7 @@ label_batch, metric_batch = decode_from_tfrecords(filename_queue, batch_size)
 
 test_tfrecord_full_file = './tfrecords/sample_training_new.tfrecords'
 test_filename_queue = tf.train.string_input_producer([test_tfrecord_full_file], num_epochs=None)
-test_label_batch, test_metric_batch = decode_from_tfrecords(filename_queue, batch_size=1000)
+test_label_batch, test_metric_batch = decode_from_tfrecords(test_filename_queue, batch_size=800)
 
 # 'Saver' op to save and restore all the variables
 # saver = tf.train.Saver()
@@ -121,19 +127,31 @@ with tf.Session() as sess:
                 print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(avg_cost))
 
                 # Test model
-                # pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
-                # #print("pred_test.eval():",pred_test.eval())
-                # correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
-                # # Calculate accuracy
-                # accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-                # #print("test_metric_batch.eval():",test_metric_batch.eval())
-                # #print("test_label_batch.eval():",test_label_batch.eval())
+                pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
+                #print("pred_test.eval():",pred_test.eval())
+                correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
+                # Calculate accuracy
+                accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+                #print("test_metric_batch.eval():",test_metric_batch.eval())
+                #print("test_label_batch.eval():",test_label_batch.eval())
 
-                # acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval()})
-                # print("Accuracy:", acc)
+                acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval()})
+                print("Accuracy:", acc)
         #save_path = saver.save(sess, model_path)
         #print("===================== Model saved in file: %s" % save_path)
 
+        ### ----------------------------PRINT PARA---------------------------------
+        print('weights_h1:',weights['h1'].eval())
+        print('weights_h2:',weights['h2'].eval())
+        print('weights_h3:',weights['h3'].eval())
+        print('weights_out:',weights['out'].eval())
+
+        print('bias_h1:',bias['h1'].eval())
+        print('bias_h2:',bias['h2'].eval())
+        print('bias_h3:',bias['h3'].eval())
+        print('bias_out:',bias['out'].eval()) 
+
+        ### ----------------------------TEST---------------------------------
         pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
         correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
         accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
@@ -152,8 +170,6 @@ with tf.Session() as sess:
     coord.join(threads)
 
     print("===================== Optimization Finished! ======================")
-
-
 
 
 

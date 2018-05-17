@@ -9,15 +9,19 @@ import cv2, argparse
 import os
 import shutil
 
-SHOW_LAPLACIAN = False
-SHOW_TEXT = False
-DEBUG_DISP = False
-FILE_COPY = False
+SHOW_LAPLACIAN  = False
+SHOW_TEXT       = False
+DEBUG_DISP      = False
+FILE_COPY       = False
 
 index = 0
 
 LABEL_BLUR  = np.array([1, 0])
 LABEL_CLEAR = np.array([0, 1])
+
+BLOCKS_H = 20
+BLOCKS_V = 12
+BLOCKS_SIZE = BLOCKS_H*BLOCKS_V
 
 def image_resize(img, length_thred=640.0):
     shape = img.shape
@@ -44,7 +48,7 @@ def image_resize(img, length_thred=640.0):
 
     return image_resize
 
-def blur_metric_blocks(image_resize, blur_thred=600, blocks_horizontal=5, blocks_vertical=6):
+def blur_metric_blocks(image_resize, blur_thred=600, blocks_horizontal=BLOCKS_H, blocks_vertical=BLOCKS_V):
 
     shape = image_resize.shape
     rows = shape[0]
@@ -77,7 +81,7 @@ def blur_metric_blocks(image_resize, blur_thred=600, blocks_horizontal=5, blocks
                    
     return metric_matrix, image_resize
 
-def blur_distriminator(image_resize, metric_matrix, blur_thred=600, blocks_horizontal=5, blocks_vertical=6):
+def blur_distriminator(image_resize, metric_matrix, blur_thred=600, blocks_horizontal=BLOCKS_H, blocks_vertical=BLOCKS_V):
 
     metric_matrix_flag = np.where(metric_matrix > blur_thred, 0, 1)
     # print('metric_matrix  =', metric_matrix)
@@ -185,7 +189,7 @@ def batch_metric_disp(path, output_dir, blur_thred):
         
 def feature_extractor(img):
     img_resize = image_resize(img)
-    metric_matrix, img_resize = blur_metric_blocks(img_resize)
+    metric_matrix, _ = blur_metric_blocks(img_resize, blocks_horizontal=BLOCKS_H, blocks_vertical=BLOCKS_V)
     
     return metric_matrix
 
@@ -202,18 +206,14 @@ def feature_preprocess_from_text(txt_file_path):
             label_gt        = int(line_split[1])
             whole_file_name = line_split[0]
 
-            line_split = line.split(' ')
 
-            label_gt = int(line_split[1])
-            whole_file_name = line_split[0]
             if True == os.path.isfile(whole_file_name):   
                 image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
                 metric_matrix = feature_extractor(image)
                 label = LABEL_BLUR if(1 == label_gt) else LABEL_CLEAR
                 metric_list = flatten(metric_matrix.tolist()) 
                 label = label.tolist()
-                print('label_gt',label_gt)
-                print('label:',label," metric_list:",metric_list)
+
 
                 feature_list.append(metric_list)
                 label_list.append(label)
@@ -356,7 +356,7 @@ def feature_reader_tfrecords(tfrecord_full_name):
       serialized_example,
       features={
         'label': tf.FixedLenFeature([2], tf.int64),
-        'metric_list': tf.FixedLenFeature([30], tf.float32)
+        'metric_list': tf.FixedLenFeature([BLOCKS_SIZE], tf.float32)
       })
 
 
