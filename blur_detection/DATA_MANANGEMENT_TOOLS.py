@@ -72,3 +72,7 @@ if __name__ == "__main__":
 
 	txt_path = text_output_path + '/' + 'sample.txt'
 	parse_data_label_info(txt_path)
+
+
+	txt_full_file = text_output_full_file
+	parse_data_label_info(txt_full_file)

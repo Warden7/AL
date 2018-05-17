@@ -81,17 +81,17 @@ accuracy = tf.reduce_mean(tf.cast(correct_prediction, 'float'))
 
 
 
-tfrecord_full_file = './tfrecords/sample_training.tfrecords'
+tfrecord_full_file = './tfrecords/sample_training_new.tfrecords'
 filename_queue = tf.train.string_input_producer([tfrecord_full_file], num_epochs=None)
 label_batch, metric_batch = decode_from_tfrecords(filename_queue, batch_size)
 
 
-test_tfrecord_full_file = './tfrecords/sample_training.tfrecords'
+test_tfrecord_full_file = './tfrecords/sample_training_new.tfrecords'
 test_filename_queue = tf.train.string_input_producer([test_tfrecord_full_file], num_epochs=None)
-test_label_batch, test_metric_batch = decode_from_tfrecords(filename_queue, batch_size=100)
+test_label_batch, test_metric_batch = decode_from_tfrecords(filename_queue, batch_size=1000)
 
 # 'Saver' op to save and restore all the variables
-saver = tf.train.Saver()
+# saver = tf.train.Saver()
 
 with tf.Session() as sess:
     sess.run(init)
@@ -121,18 +121,27 @@ with tf.Session() as sess:
                 print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(avg_cost))
 
                 # Test model
-                pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
-                #print("pred_test.eval():",pred_test.eval())
-                correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
-                # Calculate accuracy
-                accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-                #print("test_metric_batch.eval():",test_metric_batch.eval())
-                #print("test_label_batch.eval():",test_label_batch.eval())
+                # pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
+                # #print("pred_test.eval():",pred_test.eval())
+                # correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
+                # # Calculate accuracy
+                # accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+                # #print("test_metric_batch.eval():",test_metric_batch.eval())
+                # #print("test_label_batch.eval():",test_label_batch.eval())
 
-                acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval()})
-                print("Accuracy:", acc)
-        save_path = saver.save(sess, model_path)
-        print("===================== Model saved in file: %s" % save_path)
+                # acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval()})
+                # print("Accuracy:", acc)
+        #save_path = saver.save(sess, model_path)
+        #print("===================== Model saved in file: %s" % save_path)
+
+        pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
+        correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
+        accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+        print("test_metric_batch.eval():",test_metric_batch.eval())
+        print("test_label_batch.eval():",test_label_batch.eval())
+
+        acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval()})
+        print("Accuracy:", acc)
 
     except tf.errors.OutOfRangeError:
         print('Done reading')
@@ -145,7 +154,8 @@ with tf.Session() as sess:
     print("===================== Optimization Finished! ======================")
 
 
-    
+
+
 
     # pred_test_val, y_val = sess.run([pred_test, y])
     # print("pred_test_val:",pred_test_val.eval())
