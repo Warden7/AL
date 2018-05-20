@@ -246,7 +246,7 @@ def feature_saver_tfrecords_from_text_new(txt_file_path, output_tfrecords_full_f
 
         example = tf.train.Example(features = tf.train.Features(
              feature = {
-               'label': tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
+               'label': tf.train.Feature(float_list=tf.train.FloatList(value=label)),
                'metric_list': tf.train.Feature(float_list=tf.train.FloatList(value=feature_list))
                }))
 
@@ -332,7 +332,7 @@ def feature_saver_tfrecords(path, output_dir, blur_thred, txt_file_path=None):
                
                 example = tf.train.Example(features = tf.train.Features(
                      feature = {
-                       'label': tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
+                       'label': tf.train.Feature(float_list=tf.train.FloatList(value=label)),
                        'metric_list': tf.train.Feature(float_list=tf.train.FloatList(value=metric_list))
                        }))
 
@@ -355,7 +355,7 @@ def feature_reader_tfrecords(tfrecord_full_name):
     features = tf.parse_single_example(
       serialized_example,
       features={
-        'label': tf.FixedLenFeature([2], tf.int64),
+        'label': tf.FixedLenFeature([2], tf.float32),
         'metric_list': tf.FixedLenFeature([BLOCKS_SIZE], tf.float32)
       })
 
