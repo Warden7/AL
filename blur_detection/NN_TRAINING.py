@@ -7,10 +7,10 @@ from BD_NN import BLOCKS_SIZE
 
 
 learning_rate   = 0.001
-training_epochs = 100
+training_epochs = 200
 batch_size      = 40
 display_step    = 1
-n_sample        = 11340
+n_sample        = 3200
 
 
 n_input    = BLOCKS_SIZE
@@ -39,7 +39,7 @@ bias = {
 	'out':tf.Variable(tf.random_normal([n_class]))
 }
 
-def bd_net_dropout(x, weights, bias, keep_prob=0.5):
+def bd_net_dropout(x, weights, bias, keep_prob):
 	layer1 = tf.add(tf.matmul(x, weights['h1']), bias['h1'])
 	layer1 = tf.nn.relu(layer1)
         layer1_dropout = tf.nn.dropout(layer1, keep_prob)
@@ -53,7 +53,7 @@ def bd_net_dropout(x, weights, bias, keep_prob=0.5):
 
 	return out_layer
 
-def bd_net(x, weights, bias, keep_prob=0.5):
+def bd_net(x, weights, bias, keep_prob):
     layer1 = tf.add(tf.matmul(x, weights['h1']), bias['h1'])
     layer1 = tf.nn.relu(layer1)
     layer2 = tf.add(tf.matmul(layer1, weights['h2']), bias['h2'])
@@ -105,9 +105,9 @@ filename_queue = tf.train.string_input_producer([tfrecord_full_file], num_epochs
 label_batch, metric_batch = decode_from_tfrecords(filename_queue, batch_size)
 
     
-test_tfrecord_full_file = './tfrecords/sample_testing_new.tfrecords'
+test_tfrecord_full_file = './tfrecords/sample_training_new.tfrecords'
 test_filename_queue = tf.train.string_input_producer([test_tfrecord_full_file], num_epochs=None)
-test_label_batch, test_metric_batch = decode_from_tfrecords(test_filename_queue, batch_size=2000)
+test_label_batch, test_metric_batch = decode_from_tfrecords(test_filename_queue, batch_size=500)
 
 # 'Saver' op to save and restore all the variables
 saver = tf.train.Saver()
@@ -139,19 +139,14 @@ with tf.Session() as sess:
             # plt.plot(epoch + 1, avg_cost, 'co')
     	    # Display logs per epoch step
             if epoch % display_step == 0:
-                print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(avg_cost))
-
+     
                 # Test model
                 pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
-                #print('pred_test:%s' % pred_test.eval())
+          
                 correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
-                # Calculate accuracy
-                accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-                #print("test_metric_batch.eval():",test_metric_batch.eval())
-                #print("test_label_batch.eval():",test_label_batch.eval())
 
-                acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval(), keep_prob:1.0})
-                
+                accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+                acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval(), keep_prob:1.0})     
                 print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(avg_cost), "Accuracy:", acc)
 
             plt.plot(epoch + 1, avg_cost, 'r--', epoch + 1, acc, 'g--')
@@ -204,3 +199,26 @@ with tf.Session() as sess:
     # #plt.savefig('cifar-10-batches-py/MLP-TF14-test.png', dpi=200)
     
     # plt.show()
+
+# ### NOT WORK YET
+# pred_tfrecord_full_file = './tfrecords/sample_training_new.tfrecords'
+# pred_filename_queue = tf.train.string_input_producer([pred_tfrecord_full_file], num_epochs=None)
+# pred_label_batch, pred_metric_batch = decode_from_tfrecords(pred_filename_queue, batch_size=1)
+
+# print("Starting 2nd session...")
+# with tf.Session() as sess:
+#     # Initialize variables
+
+#     saver = tf.train.import_meta_graph('checkpoint/model.ckpt.meta')
+#     saver.restore(sess,tf.train.latest_checkpoint('./checkpoint/'))
+#     graph = tf.get_default_graph()
+
+#     x = graph.get_tensor_by_name('input_data:0')
+#     preds = graph.get_tensor_by_name('output:0')
+
+#     # tvs = [v for v in tf.trainable_variables()]
+#     # for v in tvs:
+#     #     print(v.name)
+#     #     print(sess.run(v))
+
+#     print('predict values:%s' % sess.run(preds, feed_dict={x:pred_metric_batch.eval()}))

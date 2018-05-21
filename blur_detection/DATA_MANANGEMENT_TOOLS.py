@@ -47,6 +47,8 @@ def generate_data_path_with_label(input_path, pos_folder_name, neg_folder_name, 
 
 		f.close()
 
+	print('totally samples number:',num_pos_samples + num_neg_samples)
+
 	return 0
 
 def parse_data_label_info(txt_full_file):

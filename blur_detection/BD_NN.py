@@ -16,11 +16,11 @@ FILE_COPY       = False
 
 index = 0
 
-LABEL_BLUR  = np.array([1, 0])
-LABEL_CLEAR = np.array([0, 1])
+LABEL_BLUR  = np.array([0, 1])
+LABEL_CLEAR = np.array([1, 0])
 
-BLOCKS_H = 20
-BLOCKS_V = 12
+BLOCKS_H = 10
+BLOCKS_V = 6
 BLOCKS_SIZE = BLOCKS_H*BLOCKS_V
 
 def image_resize(img, length_thred=640.0):
@@ -256,45 +256,6 @@ def feature_saver_tfrecords_from_text_new(txt_file_path, output_tfrecords_full_f
     writer.close()
     return 0
 
-# def feature_saver_tfrecords_from_text(txt_file_path, output_tfrecords_full_file): 
-#     writer = tf.python_io.TFRecordWriter(output_tfrecords_full_file)
-#     label_blur  = np.array([1, 0])
-#     label_clear = np.array([0, 1])
-
-#     with open(txt_file_path, 'r') as f:
-#         while 1:
-#             line = f.readline()
-            
-#             if not line:
-#                 break
-
-#             line_split = line.split(' ')
-
-#             label_gt = int(line_split[1])
-#             whole_file_name = line_split[0]
-#             if True == os.path.isfile(whole_file_name):   
-#                 image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
-#                 mean = get_image_intensity_mean(image)
-#                 img_resize = image_resize(image)
-#                 metric_matrix,img_resize = blur_metric_blocks(img_resize)
-
-#                 label = label_blur if(1 == label_gt) else label_clear
-#                 metric_list = flatten(metric_matrix.tolist()) 
-#                 label = label.tolist()
-#                 print('label_gt',label_gt)
-#                 print('label:',label," metric_list:",metric_list)
-
-#                 example = tf.train.Example(features = tf.train.Features(
-#                      feature = {
-#                        'label': tf.train.Feature(int64_list=tf.train.Int64List(value=label)),
-#                        'metric_list': tf.train.Feature(float_list=tf.train.FloatList(value=metric_list))
-#                        }))
-
-#                 serialized = example.SerializeToString()
-#                 writer.write(serialized)
-
-#     writer.close()
-#     return 0
 
 def feature_saver_tfrecords(path, output_dir, blur_thred, txt_file_path=None): 
     out_name = output_dir + 'training.tfrecords'
@@ -374,17 +335,12 @@ def feature_reader_tfrecords(tfrecord_full_name):
     sess.run(init)
 
     tf.train.start_queue_runners(sess=sess)
-    label_val, metric_val = sess.run([label_batch, metric_batch])
-    print ' first batch:'
-    print ' label_batch:',label_batch
-    print 'metric_batch:',metric_batch
-    print '   label_val:',label_val
-    print '  metric_val:',metric_val
+  
 
-    label_val, metric_val = sess.run([label_batch, metric_batch])
-    print 'second batch:'
-    print '   label_val:',label_val
-    print '  metric_val:',metric_val
+    for i in range(0, 200):
+        label_val, metric_val = sess.run([label_batch, metric_batch])
+        print '   label_val:',label_val
+        print '  metric_val:',metric_val
 
 if __name__ == "__main__":
     main(parse_arguments(sys.argv[1:]))
@@ -414,4 +370,7 @@ if __name__ == "__main__":
     txt_file_path = './text/train.txt'
     output_tfrecords_full_file = './tfrecords/sample_training_new.tfrecords'
     feature_saver_tfrecords_from_text_new(txt_file_path, output_tfrecords_full_file)
- 
+
+
+    tfrecord_full_name = output_tfrecords_full_file
+    feature_reader_tfrecords(tfrecord_full_name)
