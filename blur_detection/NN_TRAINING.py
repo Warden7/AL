@@ -4,6 +4,7 @@ import numpy as np
 import tensorflow as tf
 import matplotlib.pyplot as plt
 from BD_NN import BLOCKS_SIZE
+from BD_NN import SOFTMAX_SIGMOID_FLAG
 
 
 learning_rate   = 0.001
@@ -17,7 +18,7 @@ n_input    = BLOCKS_SIZE
 n_hidden_1 = 128
 n_hidden_2 = 128
 n_hidden_3 = 128
-n_class    = 2
+n_class    = 2 if 0 == SOFTMAX_SIGMOID_FLAG else 1
 
 model_path = "./checkpoint/model.ckpt"
 
@@ -68,9 +69,10 @@ def decode_from_tfrecords(filename_queue, batch_size):
     
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(filename_queue)   
+    lable_length = 2 if 0 == SOFTMAX_SIGMOID_FLAG else 1
     features = tf.parse_single_example(serialized_example,
                                        features={
-												'label': tf.FixedLenFeature([2], tf.float32),
+												'label': tf.FixedLenFeature([lable_length], tf.float32),
 												'metric_list': tf.FixedLenFeature([BLOCKS_SIZE], tf.float32)
                                        })  
     
@@ -88,7 +90,10 @@ def decode_from_tfrecords(filename_queue, batch_size):
 
 pred = bd_net_dropout(x, weights, bias, keep_prob)
 
-cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
+if 0 == SOFTMAX_SIGMOID_FLAG:
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=pred, labels=y))
+else:
+    cost = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(labels=y, logits=pred))
 
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 #optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(cost)
@@ -139,14 +144,17 @@ with tf.Session() as sess:
             # plt.plot(epoch + 1, avg_cost, 'co')
     	    # Display logs per epoch step
             if epoch % display_step == 0:
-     
-                # Test model
-                pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
-          
-                correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
-
-                accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
-                acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval(), keep_prob:1.0})     
+                if 0 == SOFTMAX_SIGMOID_FLAG:
+                    pred_test = tf.nn.softmax(pred)  # Apply softmax to logits
+                    correct_prediction = tf.equal(tf.argmax(pred_test, 1), tf.argmax(y, 1))
+                    accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+                    acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval(), keep_prob:1.0})     
+                else:
+                    pred_test = tf.nn.sigmoid(pred)
+                    correct_pred = tf.equal(tf.round(pred_test), y)
+                    accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+                    acc = accuracy.eval({x: test_metric_batch.eval(), y: test_label_batch.eval(), keep_prob:1.0})     
+                
                 print("Epoch:", '%04d' % (epoch+1), "cost={:.9f}".format(avg_cost), "Accuracy:", acc)
 
             plt.plot(epoch + 1, avg_cost, 'r--', epoch + 1, acc, 'g--')

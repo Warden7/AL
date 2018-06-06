@@ -23,6 +23,8 @@ BLOCKS_H = 10
 BLOCKS_V = 6
 BLOCKS_SIZE = BLOCKS_H*BLOCKS_V
 
+SOFTMAX_SIGMOID_FLAG = 1  # 0:softmax 1:sigmoid
+
 def image_resize(img, length_thred=640.0):
     shape = img.shape
     rows = shape[0]
@@ -210,14 +212,21 @@ def feature_preprocess_from_text(txt_file_path):
             if True == os.path.isfile(whole_file_name):   
                 image = cv2.imread(whole_file_name, cv2.IMREAD_COLOR)
                 metric_matrix = feature_extractor(image)
-                label = LABEL_BLUR if(1 == label_gt) else LABEL_CLEAR
+           
                 metric_list = flatten(metric_matrix.tolist()) 
-                label = label.tolist()
-
+                if 0 == SOFTMAX_SIGMOID_FLAG:
+                    label = LABEL_BLUR if(1 == label_gt) else LABEL_CLEAR
+                    label = label.tolist()
+                else:
+                    label = label_gt
 
                 feature_list.append(metric_list)
                 label_list.append(label)
                 count = count + 1
+
+                print('line:',line)
+                print('label:',label)
+                print('label_gt:',label_gt)
 
     feature_list  = np.array(feature_list)
     label_array   = np.array(label_list)
@@ -242,7 +251,10 @@ def feature_saver_tfrecords_from_text_new(txt_file_path, output_tfrecords_full_f
 
     for i in range(0, count):
         feature_list = feature_array[i].tolist()
-        label = label_array[i].tolist()
+        if 1 == SOFTMAX_SIGMOID_FLAG:
+            label = [label_array[i].tolist()]
+        else:
+            label = label_array[i].tolist()
 
         example = tf.train.Example(features = tf.train.Features(
              feature = {
@@ -313,10 +325,12 @@ def feature_reader_tfrecords(tfrecord_full_name):
 
     _, serialized_example = reader.read(filename_queue)
 
+    lable_length = 2 if 0 == SOFTMAX_SIGMOID_FLAG else 1
+
     features = tf.parse_single_example(
       serialized_example,
       features={
-        'label': tf.FixedLenFeature([2], tf.float32),
+        'label': tf.FixedLenFeature([lable_length], tf.float32),
         'metric_list': tf.FixedLenFeature([BLOCKS_SIZE], tf.float32)
       })
 

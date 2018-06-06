@@ -3,14 +3,14 @@
 
 import tensorflow as tf
 from BD_NN import BLOCKS_SIZE
-# from NN_TRAINING import decode_from_tfrecords
+from BD_NN import SOFTMAX_SIGMOID_FLAG
 
 
 n_input    = BLOCKS_SIZE
 n_hidden_1 = 128
 n_hidden_2 = 128
 n_hidden_3 = 128
-n_class    = 2
+n_class    = 2 if 0 == SOFTMAX_SIGMOID_FLAG else 1
 
 
 keep_prob = tf.placeholder(tf.float32)
@@ -49,10 +49,11 @@ preds = bd_net_dropout(x, weights, bias, keep_prob)
 def decode_from_tfrecords(filename_queue, batch_size):
     
     reader = tf.TFRecordReader()
-    _, serialized_example = reader.read(filename_queue)   
+    _, serialized_example = reader.read(filename_queue) 
+    lable_length = 2 if 0 == SOFTMAX_SIGMOID_FLAG else 1
     features = tf.parse_single_example(serialized_example,
                                        features={
-												'label': tf.FixedLenFeature([2], tf.float32),
+												'label': tf.FixedLenFeature([lable_length], tf.float32),
 												'metric_list': tf.FixedLenFeature([BLOCKS_SIZE], tf.float32)
                                        })  
     
@@ -69,7 +70,7 @@ def decode_from_tfrecords(filename_queue, batch_size):
 
 pred_tfrecord_full_file = './tfrecords/sample_training_new.tfrecords'
 pred_filename_queue = tf.train.string_input_producer([pred_tfrecord_full_file], num_epochs=None)
-pred_label_batch, pred_metric_batch = decode_from_tfrecords(pred_filename_queue, batch_size=200)
+pred_label_batch, pred_metric_batch = decode_from_tfrecords(pred_filename_queue, batch_size=20)
 
 
 
@@ -139,14 +140,24 @@ with tf.Session() as sess:
         sess.run(pred_label_batch)
         y = pred_label_batch.eval()
 
-        #print('pred_metric_batch.eval()',pred_metric_batch.eval())
+        print('x',x)
         #print('y:',y)
         logits = bd_net_dropout(x, weights, bias, keep_prob=1.0)
         correct_prediction = tf.equal(tf.argmax(tf.nn.softmax(logits), 1), tf.argmax(y, 1))
         print('ground truth label:',tf.argmax(y, 1).eval())
         print('   predicted label:',tf.argmax(tf.nn.softmax(logits), 1).eval())
 
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))
+        if 0 == SOFTMAX_SIGMOID_FLAG:
+            correct_prediction = tf.equal(tf.argmax(tf.nn.softmax(logits), 1), tf.argmax(y, 1))
+            print('ground truth label:',tf.argmax(y, 1).eval())
+            print('   predicted label:',tf.argmax(tf.nn.softmax(logits), 1).eval())
+            accuracy = tf.reduce_mean(tf.cast(correct_prediction, "float"))    
+        else:
+            correct_pred = tf.equal(tf.round(tf.nn.sigmoid(logits)), y)
+            print('ground truth label:',y)
+            print('   predicted label:',tf.nn.sigmoid(logits).eval())           
+            accuracy = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+
         print("333#################################Accuracy:", accuracy.eval())
 
         ############444##################
